@@ -17,6 +17,7 @@ class Hiera
         end
 
         @cache = cache || Filecache.new
+        @query_cache = {}
 
         Hiera.debug('Hiera mysql_json initialized')
       end
@@ -87,7 +88,15 @@ class Hiera
 
           query = Backend.parse_answer(data[key], scope)
 
-          sql_results = query(connection_hash, query)
+          @query_cache[source] = {} unless @query_cache.key?(source)
+          if @query_cache[source].key?(key)
+            Hiera.debug("Using cached query result for source #{source} and key #{key}.")
+            sql_results = @query_cache[source][key]
+          else
+            Hiera.debug("Executing query for source #{source} and key #{key}.")
+            sql_results = query(connection_hash, query)
+            @query_cache[source][key] = sql_results
+          end
           # TODO: make sure we fail if we have more than 1 result, skip if less than 1.
           next if sql_results.length != 1
 
